@@ -1,24 +1,30 @@
+/*
+	CopyRight @ 2014 by LordOfNothing
+
+	This "Warn Plugin" is public
+	plugin and is illegal to sell or
+	edit it for money or other things
+	With this plugin you can warn a player
+	like in a comunnity but direct on your
+	server !
+	
+
+*/
+
 #include <amxmodx>
 #include <amxmisc>
 #include <nvault>
-#include <fakemeta>
 
-#define MAX_WARN 3
 
-#define TAG "[WARN]"
-
-#define ACCES ADMIN_KICK
-
-#define BAN_TIME 120
-
-#define PLUGIN "Warn System"
-#define AUTHOR "Doctor"
-#define VERSION "1.0"
+new const PLUGIN [] = "Warn System";
+new const AUTHOR [] = "LordOfNothing";
+new const VERSION [] = "1.4";
 
 new g_warns[33];
 
 new g_dede;
 
+new cvars[3];
 
 enum Color
 {
@@ -43,27 +49,34 @@ new TeamName[][] =
 public plugin_init()
 {
 	register_plugin(PLUGIN,VERSION,AUTHOR);
-	register_concmd("amx_warn","cmd_warn",ACCES,"amx_warn <NUME>");
+
         g_dede = nvault_open("warn_vaults");
-        register_forward(FM_ClientUserInfoChanged, "ClientUserInfoChanged")
+
+	register_concmd("amx_warn","cmd_warn",ADMIN_KICK,"<NUME>");
+	register_concmd("amx_unwarn","cmd_unwarn",ADMIN_KICK,"<NUME>");
+
+	cvars[0] = register_cvar("warn_tag","TAG")
+	cvars[1] = register_cvar("warn_max","3")
+	cvars[2] = register_cvar("warn_bantime","120")
+
+	register_clcmd("say /warns","ShowWrn")
+	register_clcmd("say /warn","ShowWrn")
+	register_clcmd("say /warnuri","ShowWrn")
+	register_clcmd("say /wrn","ShowWrn")
+
+	register_clcmd("say_team /warns","ShowWrn")
+	register_clcmd("say_team /warn","ShowWrn")
+	register_clcmd("say_team /warnuri","ShowWrn")
+	register_clcmd("say_team /wrn","ShowWrn")
 }
 
-public ClientUserInfoChanged(id)
+public ShowWrn(id)
 {
-        static const name[] = "name"
-        static szOldName[32], szNewName[32]
-        pev(id, pev_netname, szOldName, charsmax(szOldName))
-        if( szOldName[0] )
-        {
-                get_user_info(id, name, szNewName, charsmax(szNewName))
-                if( !equal(szOldName, szNewName) )
-                {
-                        set_user_info(id, name, szOldName)
-                        ColorChat(id, TEAM_COLOR,"^1%s^4 Pe acest server nu este permisa schimbarea numelui !");
-                        return FMRES_HANDLED
-                }
-        }
-        return FMRES_IGNORED
+	new szMsg[60]
+	get_pcvar_string(cvars[0], szMsg, charsmax(szMsg) - 1)
+
+	ColorChat(id, TEAM_COLOR, "^1[ ^3%s^1 ] Ai ^4%i^1 warn-uri , ai grija la ^4%i^1 vei primi ban pentru ^4%s^1 minute !", szMsg, g_warns[id], get_pcvar_num(cvars[1]), get_pcvar_num(cvars[2]))
+	return 1
 }
 
 public cmd_warn(id,level,cid)
@@ -71,12 +84,18 @@ public cmd_warn(id,level,cid)
 	if(!cmd_access(id,level,cid,3))
 		return PLUGIN_HANDLED;
 	
-	new arg[33]
+	new arg[33], amount[33]
 	read_argv(1, arg, charsmax(arg) - 1)
+	read_argv(2, amount, charsmax(amount) - 1)
 	new target = cmd_target(id, arg, 7)
 	new admin_name[35], player_name[35];
 	get_user_name(target, player_name, charsmax(player_name) - 1);
 	get_user_name(id, admin_name, charsmax(admin_name) - 1);
+
+	new szMsg[60]
+	get_pcvar_string(cvars[0], szMsg, charsmax(szMsg) - 1)
+
+	new wors = str_to_num(amount)
 	
 	
 	if(!target)
@@ -84,16 +103,18 @@ public cmd_warn(id,level,cid)
 		return 1
 	}
 	
-	if(g_warns[target] < MAX_WARN)
+	if(g_warns[target] < get_pcvar_num(cvars[1]))
 	{
-		g_warns[target]++;
-		ColorChat(0, TEAM_COLOR, "^4%s^1 Adminul ^4%s^1 i-a dat un avertisment lui ^4%s",TAG,admin_name,player_name);
+		g_warns[target] = g_warns[target] + wors;
+		ColorChat(0, TEAM_COLOR, "^1[ ^3%s^1 ] Adminul ^4%s^1 i-a dat ^4%i^1 avertismente lui ^4%s^1 !",szMsg,admin_name,wors,player_name);
+		SaveData(target);
 		return 0
 	}
 
 	else
 	{
-		server_cmd("amx_ban 120 #%d %s Ai fost banat !",get_user_userid(target), TAG);
+		server_cmd("amx_ban #%d %i WARN",get_user_userid(target), get_pcvar_num(cvars[2]));
+		g_warns[target] = 0;
 		return 0
 	}
 
@@ -101,10 +122,41 @@ public cmd_warn(id,level,cid)
 }
 
 
+public cmd_unwarn(id,level,cid)
+{
+	if(!cmd_access(id,level,cid,3))
+		return PLUGIN_HANDLED;
+	
+	new arg[33], amount[33]
+	read_argv(1, arg, charsmax(arg) - 1)
+	read_argv(2, amount, charsmax(amount) - 1)
+	new target = cmd_target(id, arg, 7)
+	new admin_name[35], player_name[35];
+	get_user_name(target, player_name, charsmax(player_name) - 1);
+	get_user_name(id, admin_name, charsmax(admin_name) - 1);
+
+	new szMsg[60]
+	get_pcvar_string(cvars[0], szMsg, charsmax(szMsg) - 1)
+
+	new wors = str_to_num(amount)
+	
+	
+	if(!target)
+	{
+		return 1
+	}
+	
+
+	g_warns[target] = g_warns[target] - wors;
+	ColorChat(0, TEAM_COLOR, "^1[ ^3%s^1 ] Adminul ^4%s^1 i-a scos ^4%i^1 avertismente lui ^4%s^1 !",szMsg,admin_name,wors,player_name);
+	SaveData(target);
+	return 0
+}
+
 public SaveData(id)
 {
         new PlayerName[35];
-        get_user_name(id,PlayerName,34);
+        get_user_authid(id,PlayerName,34);
         
         new vaultkey[64],vaultdata[256];
         format(vaultkey,63,"%s",PlayerName);
@@ -115,7 +167,7 @@ public SaveData(id)
 public LoadData(id)
 {
         new PlayerName[35];
-        get_user_name(id,PlayerName,34);
+        get_user_authid(id,PlayerName,34);
         
         new vaultkey[64],vaultdata[256];
         format(vaultkey,63,"%s",PlayerName);
@@ -141,10 +193,6 @@ public client_disconnect(id)
 public client_putinserver(id)
 {
 	LoadData(id)
-	new szName[35];
-	get_user_name(id, szName, charsmax(szName) - 1);
-	ColorChat(id, TEAM_COLOR, "^4%s ^1Buna ^4%s^1 ai ^3%i^1 warn-uri la ^4%s^1 vei primi ban, ai grija !",TAG,szName,g_warns[id],MAX_WARN);
-	ColorChat(id, TEAM_COLOR, "^4%s ^1Plugin creat si configurat de catre ^4%s",TAG,AUTHOR);
 }
 
 
